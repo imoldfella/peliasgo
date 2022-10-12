@@ -1,31 +1,33 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 )
 
-func main() {
-	geocode("/Users/jim/dev/asset/npi/py/diff.csv", "/Users/jim/dev/asset/npi/py/diff2.csv")
+type Geocoder interface {
+	Geocode(zip, address string) (float64, float64, error)
 }
 
-func geocode(in string, out string) {
+// note: I should change
+func main() {
+	p, _ := NewPelias("// http://192.168.1.188:4000")
+	geocode("/Users/jim/dev/asset/npi/py/diff.csv", "/Users/jim/dev/asset/npi/py/diff2.csv", p, 20)
+}
+
+func geocode(in string, out string, geo Geocoder, threads int) {
 	var count int64 = 0
 	update := func() {
 		c := atomic.AddInt64(&count, 1)
-		if c%100 == 0 {
+		if c%8 == 0 {
 			log.Printf("Count %d", count)
 		}
 	}
-	threads := 20
+
 	m, e := os.ReadFile(in)
 	if e != nil {
 		panic(e)
@@ -50,14 +52,14 @@ func geocode(in string, out string) {
 				addr := mn[j]
 				update()
 				v := strings.Split(addr, "^")
-				if len(v) < 3 {
+				if len(v) < 2 {
 					continue
 				}
-				err, lat, lon := get1b(v[0], v[1], v[2])
+				lat, lon, err := geo.Geocode(v[0], v[1])
 				mu.Lock()
 				if lat == 100 || err != nil {
 					if err != nil {
-						log.Printf("error %v", err)
+						log.Printf("error %v,%s", err, addr)
 					}
 					ferr.WriteString(addr + "\n")
 				} else {
@@ -70,53 +72,6 @@ func geocode(in string, out string) {
 	}
 
 	wg.Wait()
-}
-func get1(zip, state, address string) (error, float64, float64) {
-	url := fmt.Sprintf("http://192.168.1.188:4000/v1/search?text=%s", url.QueryEscape(address+","+state+" "+zip))
-	resp, err := http.Get(url)
-	if err != nil {
-		return err, 0, 0
-	}
-	var target Location
-	b, e := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if e != nil {
-		log.Printf("errror %v, %v", b, err)
-		return e, 0, 0
-	}
-	e = json.Unmarshal(b, &target)
-	if len(target.Features) == 0 {
-		return get1b(zip, state, address)
-	}
-	if e != nil || len(target.Features) == 0 {
-		log.Printf("not found %v", e)
-		return e, 0, 0
-	}
-	a := target.Features[0].Geometry.Coordinates
-
-	return nil, a[1], a[0]
-}
-func get1b(zip, state, address string) (error, float64, float64) {
-	url := fmt.Sprintf("http://192.168.1.188:4000/v1/search/structured?region=%s&address=%s&postalcode=%s", url.QueryEscape(state), url.QueryEscape(address), url.QueryEscape(zip))
-	resp, err := http.Get(url)
-	if err != nil {
-		return err, 0, 0
-	}
-	var target Location
-	b, e := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if e != nil {
-		return err, 0, 0
-	}
-	e = json.Unmarshal(b, &target)
-	if e != nil {
-		return e, 0, 0
-	}
-	if len(target.Features) == 0 {
-		return nil, 100, 0
-	}
-	a := target.Features[0].Geometry.Coordinates
-	return nil, a[1], a[0]
 }
 
 type Location struct {

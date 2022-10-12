@@ -1,8 +1,11 @@
-
+# note that paths start from root of project, not this folder.
+# python3 -m pip install duckdb pandas
 import duckdb
 import pandas
 
-
+# to execute in vs code select all, shift return
+# import os
+# print(os.getcwd())
 # con = duckdb.connect(":memory:")
 # con.execute("""
 #     COPY (select * from read_csv_auto('/Users/jim/dev/asset/npi/NPPES_Data_Dissemination_September_2022/npidata_pfile_20050523-20220911.csv', header=TRUE, ALL_VARCHAR=TRUE, delim=',',NORMALIZE_NAMES=TRUE ) )
@@ -10,7 +13,7 @@ import pandas
 #     (FORMAT 'PARQUET', CODEC 'ZSTD');
 #     """)
 
-con = duckdb.connect("db1")
+con = duckdb.connect("build/db1")
 
 # {table} = npi or update
 # {table} | csv exactly
@@ -19,20 +22,19 @@ con = duckdb.connect("db1")
 # diff = updatea - npia , we need to geocode these
 
 
-
 def export(table: str):
     con.execute(f"copy  {table} to '{table}.csv'")
 
 def diff():
     con.execute(f"create or replace table diff as select address from updatea where address not in (select address from npia)").fetchdf()
-    export('diff')
+    export('build/diff')
 
 def uniqueAddress(tablename: str):
     # extract the unique addresses
     con.execute(f"create or replace table {tablename}a (address varchar primary key)") 
-    con.execute(f"""insert into {tablename}a select distinct concat(substring(zip,1,5),'^',state,'^',address1)
+    con.execute(f"""insert into {tablename}a select distinct concat(substring(zip,1,5),'^',address1)
     from {tablename}b
-    where zip is not null and state is not null and address1 is not null
+    where zip is not null and address1 is not null
     """)
 
     # create a list of addresses that we haven't seen before
@@ -63,16 +65,17 @@ def head(tablename: str):
 
 def whatever():
     con.execute("""select  address1,address2 from npib where address2<>'' limit 1000""").fetchdf() 
-    con.execute("""select * from address order by zip,state, address1 limit 1000 """).fetchdf()
+    con.execute("""select * from address order by zip, address1 limit 1000 """).fetchdf()
     con.execute("""select count(*) from address""").fetchall()
     con.execute("""select count(*) from npib""").fetchall()
 
 
 def test1():
-   load('/Users/jim/dev/asset/npi/NPPES_Data_Dissemination_092622_100222_Weekly/npidata_pfile_20220926-20221002.csv', 'update')
+   load('download/NPPES_Data_Dissemination_092622_100222_Weekly/npidata_pfile_20220926-20221002.csv', 'update')
 
 def test():
-    load("/Users/jim/dev/asset/npi/NPPES_Data_Dissemination_September_2022/npidata_pfile_20050523-20220911.csv","npi")
+    load("download/NPPES_Data_Dissemination_September_2022/npidata_pfile_20050523-20220911.csv","npi")
     test1()
     diff()
 
+test()
