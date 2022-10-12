@@ -57,10 +57,7 @@ func geocode(in string, out string, geo Geocoder, threads int) {
 				}
 				lat, lon, err := geo.Geocode(v[0], v[1])
 				mu.Lock()
-				if lat == 100 || err != nil {
-					if err != nil {
-						log.Printf("error %v,%s", err, addr)
-					}
+				if err != nil {
 					ferr.WriteString(addr + "\n")
 				} else {
 					fout.WriteString(fmt.Sprintf("%s,%f,%f\n", addr, lat, lon))

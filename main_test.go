@@ -39,5 +39,8 @@ func Test_photon1(t *testing.T) {
 }
 func Test_photonDiff(t *testing.T) {
 	// geocode the diff file
-	geocode("./build/diff.csv", "./build/diff2.csv", photonCode(), 20)
+	geocode("./build/diff.csv", "./build/photon/diff2.csv", photonCode(), 40)
+}
+func Test_photonAll(t *testing.T) {
+	geocode("./build/npia.csv", "./build/photon/npia2.csv", photonCode(), 40)
 }

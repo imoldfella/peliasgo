@@ -21,58 +21,27 @@ func NewPhoton(server string) (Geocoder, error) {
 
 // Geocode implements Geocoder
 func (p *PhotonCoder) Geocode(zip string, address string) (float64, float64, error) {
-	structured := func(zip, address string) (float64, float64, error) {
-		url := fmt.Sprintf("%s/v1/search/structured?address=%s&postalcode=%s", p.server, url.QueryEscape(address), url.QueryEscape(zip))
-		resp, err := http.Get(url)
-		if err != nil {
-			return 0, 0, err
-		}
-		var target Location
-		b, e := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if e != nil {
-			return 0, 0, err
-		}
-		e = json.Unmarshal(b, &target)
-		if e != nil {
-			return 0, 0, e
-		}
-		if len(target.Features) == 0 {
-			return 100, 0, nil
-		}
-		a := target.Features[0].Geometry.Coordinates
-		return a[1], a[0], nil
+
+	url := fmt.Sprintf("%s/api?q=%s", p.server, url.QueryEscape(address+","+" "+zip))
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, 0, err
 	}
-
-	unstructured := func(zip, address string) (float64, float64, error) {
-		url := fmt.Sprintf("%s/v1/search?text=%s", p.server, url.QueryEscape(address+","+" "+zip))
-		resp, err := http.Get(url)
-		if err != nil {
-			return 0, 0, err
-		}
-		var target Location
-		b, e := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if e != nil {
-			log.Printf("errror %v, %v", b, err)
-			return 0, 0, e
-		}
-		e = json.Unmarshal(b, &target)
-		if len(target.Features) == 0 {
-			return structured(zip, address)
-		}
-		if e != nil || len(target.Features) == 0 {
-			log.Printf("not found %v", e)
-			return 0, 0, e
-		}
-		a := target.Features[0].Geometry.Coordinates
-
-		return a[1], a[0], nil
+	var target Location
+	b, e := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if e != nil {
+		log.Printf("errror %v, %v", b, err)
+		return 0, 0, e
 	}
-	_ = unstructured
+	e = json.Unmarshal(b, &target)
 
-	return structured(zip, address)
+	if e != nil || len(target.Features) == 0 {
+		return 0, 0, fmt.Errorf("not found")
+	}
+	a := target.Features[0].Geometry.Coordinates
 
+	return a[1], a[0], nil
 }
 
 var _ Geocoder = (*PhotonCoder)(nil)
