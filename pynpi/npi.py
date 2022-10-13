@@ -1,26 +1,34 @@
 # note that paths start from root of project, not this folder.
 # python3 -m pip install duckdb pandas
+# shift-enter to execute a range. right-click "run selection python terminal"
 import duckdb
 import pandas
-
-# to execute in vs code select all, shift return
-# import os
-# print(os.getcwd())
-# con = duckdb.connect(":memory:")
-# con.execute("""
-#     COPY (select * from read_csv_auto('/Users/jim/dev/asset/npi/NPPES_Data_Dissemination_September_2022/npidata_pfile_20050523-20220911.csv', header=TRUE, ALL_VARCHAR=TRUE, delim=',',NORMALIZE_NAMES=TRUE ) )
-#     TO 'npi.parquet' 
-#     (FORMAT 'PARQUET', CODEC 'ZSTD');
-#     """)
-
+import os
 con = duckdb.connect("build/db1")
+
+# shared npi layer
+# npi_final(tile,npi,fname,lname,sname,address_id)
+# npi_address(tile,address_id,lat,lon,address1,address2,cszip_id)
+# tile_cszip(tile, cszip_id, city, state, country)
+
+# plan layer
+# plan_provider(tile, contract, npi)
+
+# plan_description (global, not per tile)
+# plan_contract(code, contract, price)
 
 # {table} = npi or update
 # {table} | csv exactly
-# {table}b | simplified with view
 # {table}a | unique addresses concatenated with ^
+# {table}b | simplified view of npi column names. used by uniqueAddress
+# {table}_coded | address,lat,lon
+
+
+
 # diff = updatea - npia , we need to geocode these
 
+def pwd():
+    print(os.getcwd())
 
 def export(table: str):
     con.execute(f"copy  {table} to '{table}.csv'")
@@ -60,6 +68,8 @@ def load(fname: str, tablename: str):
 
 def head(tablename: str):
   print(con.execute(f"""select  * from {tablename} limit 1000""").fetchdf())
+
+def count(tablename: str):
   print(con.execute(f"""select count(*) from {tablename}""").fetchall())
 
 
@@ -78,4 +88,13 @@ def test():
     test1()
     diff()
 
+def loadCoded(tablename: str, csv: str):
+    con.execute(f"create or replace table {tablename}(address varchar,lat double,lon double)")
+    con.execute(f"copy {tablename} from '{csv}' (header false)")
+
+loadCoded("npi_coded", "build/photon/npia2.csv")
+
 test()
+head("npi_coded")
+
+#     con.execute(f"create or replace table coded(address varchar,lat double,lon double)")
