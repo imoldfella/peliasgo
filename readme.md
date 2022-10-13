@@ -43,3 +43,17 @@ golang for importing pbf to postgres
 
 https://daylightmap.org/
 facebook, microsoft enhanced maps.
+
+
+# COG future work
+cogger - cloud optimized geotiff. great for satellite images if we can get them
+
+lansat geotiff images
+https://d9-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/atoms/files/LSDS-1388-Landsat-Cloud-Optimized-GeoTIFF_DFCB-v2.0.pdf
+
+cog standard
+https://portal.ogc.org/files/102116
+
+https://openlayers.org/
+
+

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -15,7 +16,16 @@ type Geocoder interface {
 
 // note: I should change
 func main() {
-	p, _ := NewPelias("// http://192.168.1.188:4000")
+	var p Geocoder
+	command := os.Args[1]
+	switch command {
+	case "pelias":
+		url := flag.String("url", "http://192.168.1.188:4000", "# of iterations")
+		flag.Parse()
+		p, _ = NewPelias(*url)
+	case "":
+
+	}
 	geocode("/Users/jim/dev/asset/npi/py/diff.csv", "/Users/jim/dev/asset/npi/py/diff2.csv", p, 20)
 }
 

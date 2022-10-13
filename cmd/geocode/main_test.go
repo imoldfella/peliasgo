@@ -44,3 +44,7 @@ func Test_photonDiff(t *testing.T) {
 func Test_photonAll(t *testing.T) {
 	geocode("./build/npia.csv", "./build/photon/npia2.csv", photonCode(), 40)
 }
+
+func Test_mapbuild(t *testing.T) {
+
+}
