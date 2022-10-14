@@ -1,4 +1,4 @@
-package main
+package encode
 
 import (
 	"fmt"
@@ -23,7 +23,9 @@ message rl_dict {
 	repeated uint32 symbol
 	ef dense
 }
-
+prefix_symbol - array of blobs
+prefix_#shard - array of symbols or blobs
+prefix_#shared_data - overflow
 */
 
 type EfBytes struct {
@@ -31,33 +33,27 @@ type EfBytes struct {
 	Bytes []byte
 }
 
-type RlArray struct {
-	run    []uint32
-	symbol []uint32
-	dense  EfBytes
-}
-
-type BucketInfo struct {
-	Len        int
-	BucketSize int
-	reader     Bucketable
+// blob 0 can hold configuration information for the entire array.
+type BlobArray struct {
+	Len    int
+	reader Bucketable
 }
 
 // we can write the bucket index together with the tail chunk, tricky because we need to compress.
 type Bucketable interface {
 	// getChunks can return an int or a []byte for each position. the int is to reference a symbol and is only used if the []byte is nil
-	getChunks(bucket int, start, end int) ([][]byte, []int)
-	getSymbols() [][]byte
+	getChunks(start, end int) ([][]byte, []int, error)
+	//getSymbols(start, end int) [][]byte
 }
 
 // each bucket will have a
-func writeBuckets(o *BucketInfo, prefix string, maxFileSize int, nthread int) error {
-	symdata := o.reader.getSymbols()
+func writeBuckets(o *BlobArray, shards int, prefix string, maxFileSize int, nthread int) error {
+
 	if nthread == 0 {
 		nthread = runtime.NumCPU()
 	}
 	ln := o.Len
-	perFile := o.BucketSize
+	perFile := ln / shards
 	var nextShard int64
 
 	var wg sync.WaitGroup
@@ -86,7 +82,10 @@ func writeBuckets(o *BucketInfo, prefix string, maxFileSize int, nthread int) er
 				pos := 0
 				for from != to {
 					// get some chunks from the data
-					chunk, ref := o.reader.getChunks(f, from, to)
+					chunk, ref, err := o.reader.getChunks(from, to)
+					if err != nil {
+						panic(err)
+					}
 
 					df.WriteAll(chunk)
 					for i, v := range chunk {
@@ -118,11 +117,6 @@ func writeBuckets(o *BucketInfo, prefix string, maxFileSize int, nthread int) er
 	}
 	// write the symbol table if it exists, it might not.
 	// here we just have a
-	if len(symdata) != 0 {
-		var symbolTable []byte
-		//
-		os.WriteFile(prefix, symbolTable, os.ModePerm)
-	}
 
 	wg.Wait()
 	return nil

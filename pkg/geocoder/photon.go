@@ -1,4 +1,4 @@
-package main
+package geocoder
 
 import (
 	"encoding/json"

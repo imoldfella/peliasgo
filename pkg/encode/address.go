@@ -1,6 +1,4 @@
-package main
-
-import "github.com/imoldfella/peliasgo/pkg/encode"
+package encode
 
 // coded npi is 183mb, so easily fits in ram, does not need a high zoom level
 
@@ -39,7 +37,7 @@ alternative
 
 // tile sets may provide a symbol dictionary for compression (e.g water, land, dont care)
 type Tileset interface {
-	Pyramid() encode.Pyramid
+	Pyramid() Pyramid
 	// returns either the tile or a handle to a repeat.
 	GetTile(index int, data []byte) ([]byte, int, error)
 	Repeats() map[int][]byte
@@ -64,7 +62,7 @@ func (a *AddressSet) GetTile(index int, data []byte) ([]byte, int, error) {
 }
 
 // Pyramid implements Tileset
-func (*AddressSet) Pyramid() encode.Pyramid {
+func (*AddressSet) Pyramid() Pyramid {
 	panic("unimplemented")
 }
 

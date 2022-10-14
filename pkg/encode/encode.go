@@ -8,6 +8,13 @@ func If[T any](t bool, a, b T) T {
 	}
 }
 
+/*
+type RlArray struct {
+	run    []uint32
+	symbol []uint32
+	dense  EfBytes
+}*/
+
 func RlEncode(v []int) ([]int, []int) {
 	r := make([]int, 0, len(v))
 

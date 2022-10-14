@@ -1,4 +1,4 @@
-package main
+package geocoder
 
 import (
 	"log"
@@ -22,10 +22,10 @@ func photonCode() Geocoder {
 
 func Test_test1(t *testing.T) {
 	// geocode the diff file
-	geocode("./build/diff.csv", "./build/diff2.csv", pgcode(), 4)
+	Geocode("./build/diff.csv", "./build/diff2.csv", pgcode(), 4)
 }
 func Test_test3(t *testing.T) {
-	geocode("./build/npia.csv", "./build/npia2.csv", pgcode(), 1)
+	Geocode("./build/npia.csv", "./build/npia2.csv", pgcode(), 1)
 }
 func Test_test2(t *testing.T) {
 
@@ -39,10 +39,10 @@ func Test_photon1(t *testing.T) {
 }
 func Test_photonDiff(t *testing.T) {
 	// geocode the diff file
-	geocode("./build/diff.csv", "./build/photon/diff2.csv", photonCode(), 40)
+	Geocode("./build/diff.csv", "./build/photon/diff2.csv", photonCode(), 40)
 }
 func Test_photonAll(t *testing.T) {
-	geocode("./build/npia.csv", "./build/photon/npia2.csv", photonCode(), 40)
+	Geocode("./build/npia.csv", "./build/photon/npia2.csv", photonCode(), 40)
 }
 
 func Test_mapbuild(t *testing.T) {

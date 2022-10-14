@@ -14,19 +14,27 @@ type Pyramid struct {
 }
 
 func (p *Pyramid) Xyz(id int) (x, y, z int, e error) {
-
-	return 0, 0, 0, fmt.Errorf("bad parameters")
+	for z, h := range p.h {
+		sz := h.N * h.N
+		if id >= sz {
+			id -= sz
+		} else {
+			x, y, _ = h.Map(id)
+			return x, y, z + p.MinZoom, nil
+		}
+	}
+	return 0, 0, 0, fmt.Errorf("out of bounds")
 }
 
-func NewPyramid(min, max int) *Pyramid {
+func NewPyramid(minZoom, maxZoom int) *Pyramid {
 	o := &Pyramid{
-		MinZoom: min,
-		MaxZoom: max,
+		MinZoom: minZoom,
+		MaxZoom: maxZoom,
 		h:       []*hilbert.Hilbert{},
 	}
 	o.h = make([]*hilbert.Hilbert, o.MaxZoom-o.MinZoom)
 	for x := range o.h {
-		o.h[x], _ = hilbert.NewHilbert(1 << x)
+		o.h[x], _ = hilbert.NewHilbert(1 << (x + o.MinZoom))
 	}
 	for z := o.MinZoom; z < o.MaxZoom; z++ {
 		o.Len += (1 << z) * (1 << z)
