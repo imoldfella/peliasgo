@@ -1,0 +1,13 @@
+syntax = "proto3";
+package bucketvector;
+
+message Ef {
+    uint32 len = 1;
+    bytes data = 2;
+}
+
+message Rl {
+    repeated uint32 symbol = 1;
+    repeated uint32 runlength = 2;
+    Ef ef = 3;
+}

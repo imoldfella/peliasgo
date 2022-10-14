@@ -8,14 +8,10 @@ package main
 // 3. build each hilbert key'd file multithreaded. (not lots of thread, should block on disk)
 
 import (
-	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
-
-	"github.com/google/hilbert"
 )
 
 // Create a Hilbert curve for mapping to and from a 16 by 16 space.
@@ -26,28 +22,25 @@ import (
 
 // track the repeated
 
-type Pyramid struct {
-	Len     int
-	MinZoom int
-	MaxZoom int
-	h       []*hilbert.Hilbert // one fore each zoom
-}
+// a osm map with pyramid addresses is, map[int][]byte
+// a plan is a map[bucket(planid,contract)] -> [(code,price)]}
 
-func NewPyramid(min, max int) *Pyramid {
-	o := &Pyramid{
-		MinZoom: min,
-		MaxZoom: max,
-		h:       []*hilbert.Hilbert{},
-	}
-	o.h = make([]*hilbert.Hilbert, o.MaxZoom-o.MinZoom)
-	for x := range o.h {
-		o.h[x], _ = hilbert.NewHilbert(1 << x)
-	}
-	for z := o.MinZoom; z < o.MaxZoom; z++ {
-		o.Len += (1 << z) * (1 << z)
-	}
-	return o
-}
+// note that pricing here generally could be a function, not a constant.
+// but that's future work.
+
+// for most funds there could be just one bucket.
+
+// bucket(T ) -> bucket, chunk
+// buckets and chunks must be dense integers 0..N
+// it's ok to have 1 bucket and one chunk though.
+// chunks can return symbolic chunks that are references to a symbol table.
+
+// this works out to a two level array of byte strings.
+// the advantage of a top level directory would be that we could pack the buckets more densely
+// by interpolating the top node implicitly we are ensuring that we have non-full buckets.
+// but the downside is we have to read that top bucket.
+// but we get the same result by having only one bucket. so optional for applications that are not
+// helped by imputing
 
 type Map struct {
 	p      Pyramid
@@ -65,41 +58,6 @@ type Map struct {
 	nextShard    int64
 	chunkCount   int64 // quick check that we haven't exceeded Nfiles
 
-}
-
-type SplitLog struct {
-	b      []byte
-	w      io.Writer
-	prefix string
-	count  int
-}
-
-// Close implements io.WriteCloser
-func (*SplitLog) Close() error {
-	panic("unimplemented")
-}
-
-func (o *SplitLog) Flush() error {
-	return os.WriteFile(fmt.Sprintf("%s%d", o.prefix, o.count), o.b, os.ModePerm)
-	o.b = o.b[:0]
-	o.count++
-	return nil
-}
-
-// Write implements io.Writer
-func (*SplitLog) Write(p []byte) (n int, err error) {
-	// write as much as we can,then start the next file
-	return 0, nil
-}
-
-var _ io.WriteCloser = (*SplitLog)(nil)
-
-func OpenSplitLog(p string, maxfile int) *SplitLog {
-	return &SplitLog{
-		prefix: p,
-		count:  0,
-		b:      make([]byte, maxfile),
-	}
 }
 
 func (o *Map) Build() error {

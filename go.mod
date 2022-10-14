@@ -1,4 +1,4 @@
-module github.com/go.mod/peliasgo
+module github.com/imoldfella/peliasgo
 
 go 1.19
 
