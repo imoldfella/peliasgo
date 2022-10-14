@@ -1,0 +1,41 @@
+
+
+// we can computer the number of tiles per layer easily, we can
+
+// note that the highest zoom is more work of all the other layers
+// so we can split the cpu's top layer + rest, and if for only one layer
+// then split on files?
+// we could also try to first assign to files, then cpu's could grab them from a queue. we could potentially not need a directory at all; the hilbert space is well known.
+func build() error {
+
+	// fi,_ := os.Stat(mbtile)
+	// targetSize := fi.Size() / opt.Nfiles;
+	//var fj := make([]FileJob, opt.Nfiles)
+	//len := opt.Len()
+
+	// seperate each layer over all the files.
+
+	// for l := opt.MinZoom; l < opt.MaxZoom; l++ {
+
+	// }
+	return nil
+}
+
+func buildLayer(layer int) error {
+	// Create a Hilbert curve for mapping to and from a 16 by 16 space.
+	s, err := hilbert.NewHilbert(1 << layer)
+	if err != nil {
+		return err
+	}
+	_ = s
+	// Create a Peano curve for mapping to and from a 27 by 27 space.
+	//s, err := hilbert.NewPeano(27)
+
+	// Now map one dimension numbers in the range [0, N*N-1], to an x,y
+	// coordinate on the curve where both x and y are in the range [0, N-1].
+	//x, y, err := s.Map(t)
+
+	// Also map back from (x,y) to t.
+	//t, err := s.MapInverse(x, y)
+	return nil
+}
