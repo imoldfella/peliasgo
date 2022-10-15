@@ -14,10 +14,16 @@ import (
 
 // we could require the references up front, these are always small, from shallow.
 // then we could
+
+// a blob array is a 
 type BlobArray interface {
 	Len() int
-	Copy(o *SnapshotWriter, start, end int) error
+	Copy(o *SplitLogWriter, start, end int) error
 }
+
+// can be something other than maps, basically an array of blobs where some blobs
+// can be reused. create table(uint32, blob) where some blobs can be reused.
+// create table ()
 
 /*
 

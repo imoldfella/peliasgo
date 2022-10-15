@@ -11,6 +11,7 @@ type Pyramid struct {
 	MinZoom int
 	MaxZoom int
 	h       []*hilbert.Hilbert // one fore each zoom
+	start   []int
 }
 
 func (p *Pyramid) Xyz(id int) (x, y, z int, e error) {
@@ -25,6 +26,11 @@ func (p *Pyramid) Xyz(id int) (x, y, z int, e error) {
 	}
 	return 0, 0, 0, fmt.Errorf("out of bounds")
 }
+func (p *Pyramid) FromXyz(x, y, z uint32) (uint32, error) {
+	id, e := p.h[z].MapInverse(int(x), int(y))
+	id += p.start[z]
+	return uint32(id), e
+}
 
 func NewPyramid(minZoom, maxZoom int) *Pyramid {
 	o := &Pyramid{
@@ -33,11 +39,17 @@ func NewPyramid(minZoom, maxZoom int) *Pyramid {
 		h:       []*hilbert.Hilbert{},
 	}
 	o.h = make([]*hilbert.Hilbert, o.MaxZoom-o.MinZoom)
+	o.start = make([]int, 1+o.MaxZoom-o.MinZoom)
+	cnt := 0
 	for x := range o.h {
 		o.h[x], _ = hilbert.NewHilbert(1 << (x + o.MinZoom))
+		cnt += o.h[x].N * o.h[x].N
+		o.start[x+1] = cnt
+
 	}
-	for z := o.MinZoom; z < o.MaxZoom; z++ {
-		o.Len += (1 << z) * (1 << z)
-	}
+	o.Len = cnt
+	// for z := o.MinZoom; z < o.MaxZoom; z++ {
+	// 	o.Len += (1 << z) * (1 << z)
+	// }
 	return o
 }

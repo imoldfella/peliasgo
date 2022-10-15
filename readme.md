@@ -9,6 +9,10 @@ copied from planetiler github.
 wget https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar
 java -Xmx110g -XX:MaxHeapFreeRatio=40   -jar planetiler.jar \
   --area=planet --bounds=planet --download  --download-threads=10 --download-chunk-size-mb=1000 --fetch-wikidata  --mbtiles=output.mbtiles   --nodemap-type=array --storage=ram 
+
+java -Xmx110g -XX:MaxHeapFreeRatio=40   -jar planetiler.jar \
+  --osm-path=data/sources/monaco.osm.pbf --mbtiles=monaco.mbtiles   --nodemap-type=array --storage=ram 
+
 ```
 
 ## test the build 

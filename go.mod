@@ -8,3 +8,9 @@ require (
 	github.com/lib/pq v1.10.7
 	github.com/mattn/go-sqlite3 v1.14.15
 )
+
+require (
+	github.com/jfcg/sixb v1.3.5 // indirect
+	github.com/jfcg/sorty/v2 v2.0.8 // indirect
+	github.com/paulmach/orb v0.7.1 // indirect
+)
