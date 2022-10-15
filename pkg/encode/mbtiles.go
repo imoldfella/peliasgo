@@ -11,8 +11,7 @@ type MbtileSet struct {
 	getTile   *sql.Stmt
 
 	// maps a pyramid index to a value in the Repeats dictionary.
-	repeats map[int]int
-
+	repeated map[int]int
 	// this value is returned, e.g. one entry for water, land, don't care
 	Repeats [][]byte
 }
@@ -40,20 +39,24 @@ func NewMbtileSet(path string) (*BlobArray, error) {
 		db:        db,
 		getTileId: s1,
 		getTile:   s2,
-		repeats:   map[int]int{},
 	}
 	return &BlobArray{
-		Len:        reader.p.Len,
-		LenSymbols: len(reader.repeats),
-		reader:     reader,
+		Len:    reader.p.Len,
+		reader: reader,
 	}, nil
 }
 
 // getChunks implements Bucketable
+// repeats at beginning.
 func (m *MbtileSet) getChunks(start int, end int) ([][]byte, []int, error) {
 	r := make([][]byte, 0, end-start)
 	rs := []int{}
 
+	for ; start < len(m.Repeats); start++ {
+		r = append(r, m.Repeats[start])
+	}
+
+	start -= len(m.Repeats)
 	for ; start != end; start++ {
 		x, y, z, err := m.p.Xyz(start)
 		if err != nil {
@@ -66,7 +69,7 @@ func (m *MbtileSet) getChunks(start int, end int) ([][]byte, []int, error) {
 		}
 
 		var b []byte
-		sym, ok := m.repeats[tileid]
+		sym, ok := m.repeated[tileid]
 		if !ok {
 			m.getTile.QueryRow(tileid).Scan(&b)
 			r = append(r, b)
@@ -76,9 +79,4 @@ func (m *MbtileSet) getChunks(start int, end int) ([][]byte, []int, error) {
 		}
 	}
 	return r, rs, nil
-}
-
-// getSymbols implements Bucketable
-func (m *MbtileSet) getSymbols(start, end int) [][]byte {
-	return m.Repeats
 }

@@ -2,49 +2,44 @@ package encode
 
 import (
 	"fmt"
-	"io"
 	"os"
 )
 
 type SplitLog struct {
-	b      []byte
-	w      io.Writer
-	prefix string
-	count  int
+	b       []byte
+	prefix  string
+	count   int
+	maxfile int
 }
 
-// Close implements io.WriteCloser
-func (o *SplitLog) Close() error {
-	o.Flush()
-	return nil
-}
-
-func (o *SplitLog) Flush() error {
-	if len(o.b) == 0 {
-		return nil
+func (s *SplitLog) Write(p []byte) error {
+	// write as much as we can,then start the next file
+	var err error
+	remain := s.maxfile - len(s.b)
+	if len(p) < remain {
+		s.b = append(s.b, p...)
+	} else {
+		s.b = append(s.b, p[0:remain]...)
+		err = os.WriteFile(fmt.Sprintf("%s_%d", s.prefix, s.count), s.b, os.ModePerm)
+		s.b = p[remain:]
 	}
-	return os.WriteFile(fmt.Sprintf("%s_%d", o.prefix, o.count), o.b, os.ModePerm)
-	o.b = o.b[:0]
-	o.count++
+	return err
+}
+func (s *SplitLog) WriteAll(p [][]byte) error {
+	// write as much as we can,then start the next file
+	for _, v := range p {
+		err := s.Write(v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
-
-// Write implements io.Writer
-func (*SplitLog) Write(p []byte) (n int, err error) {
-	// write as much as we can,then start the next file
-	return 0, nil
-}
-func (*SplitLog) WriteAll(p [][]byte) (n int, err error) {
-	// write as much as we can,then start the next file
-	return 0, nil
-}
-
-var _ io.WriteCloser = (*SplitLog)(nil)
 
 func OpenSplitLog(p string, maxfile int) *SplitLog {
 	return &SplitLog{
 		prefix: p,
 		count:  0,
-		b:      make([]byte, maxfile),
+		b:      make([]byte, 0, maxfile),
 	}
 }

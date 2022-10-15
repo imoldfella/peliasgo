@@ -8,6 +8,13 @@ import (
 	"sync/atomic"
 )
 
+// blob 0 can hold configuration information for the entire array.
+// including zoom levels
+type BlobArray struct {
+	Len    int
+	reader Bucketable
+}
+
 /*
 
 # dense array format
@@ -31,12 +38,6 @@ prefix_#shared_data - overflow
 type EfBytes struct {
 	Len   int
 	Bytes []byte
-}
-
-// blob 0 can hold configuration information for the entire array.
-type BlobArray struct {
-	Len    int
-	reader Bucketable
 }
 
 // we can write the bucket index together with the tail chunk, tricky because we need to compress.
