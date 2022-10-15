@@ -10,9 +10,13 @@ import (
 
 // blob 0 can hold configuration information for the entire array.
 // including zoom levels
-type BlobArray struct {
-	Len    int
-	reader Bucketable
+// future work: instead of duplicate reference allow a diff program
+
+// we could require the references up front, these are always small, from shallow.
+// then we could
+type BlobArray interface {
+	Len() int
+	Copy(o *SnapshotWriter, start, end int) error
 }
 
 /*
@@ -40,20 +44,13 @@ type EfBytes struct {
 	Bytes []byte
 }
 
-// we can write the bucket index together with the tail chunk, tricky because we need to compress.
-type Bucketable interface {
-	// getChunks can return an int or a []byte for each position. the int is to reference a symbol and is only used if the []byte is nil
-	getChunks(start, end int) ([][]byte, []int, error)
-	//getSymbols(start, end int) [][]byte
-}
-
 // each bucket will have a
-func writeBuckets(o *BlobArray, shards int, prefix string, maxFileSize int, nthread int) error {
+func writeBuckets(o BlobArray, shards int, prefix string, maxFileSize int, nthread int) error {
 
 	if nthread == 0 {
 		nthread = runtime.NumCPU()
 	}
-	ln := o.Len
+	ln := o.Len()
 	perFile := ln / shards
 	var nextShard int64
 
@@ -83,7 +80,7 @@ func writeBuckets(o *BlobArray, shards int, prefix string, maxFileSize int, nthr
 				pos := 0
 				for from != to {
 					// get some chunks from the data
-					chunk, ref, err := o.reader.getChunks(from, to)
+					chunk, ref, err := o.Read(from, to)
 					if err != nil {
 						panic(err)
 					}

@@ -11,20 +11,25 @@ type MbtileSet struct {
 	getTile   *sql.Stmt
 
 	// maps a pyramid index to a value in the Repeats dictionary.
-	repeated map[int]int
-	// this value is returned, e.g. one entry for water, land, don't care
-	Repeats [][]byte
+	repeated         map[int]int
+	repeated_tile_id []int
 }
 
-var _ Bucketable = (*MbtileSet)(nil)
+var _ BlobArray = (*MbtileSet)(nil)
 
-func NewMbtileSet(path string) (*BlobArray, error) {
+func (b *MbtileSet) Len() int {
+	return b.p.Len
+}
+
+const s1 = "select tile_id,count(*) from shallow_tiles group by 1 having count(*)>1 order by 1"
+
+func NewMbtileSet(path string) (*MbtileSet, error) {
 	// open sqlite and find the repeated tile ids.
 	db, e := sql.Open("sqlite", path)
 	if e != nil {
 		return nil, e
 	}
-	s1, e := db.Prepare("select")
+	s1, e := db.Prepare(s1)
 	if e != nil {
 		return nil, e
 	}
@@ -34,26 +39,27 @@ func NewMbtileSet(path string) (*BlobArray, error) {
 	}
 	// find the repeats an intialize those directories.
 
-	reader := &MbtileSet{
+	return &MbtileSet{
 		p:         Pyramid{},
 		db:        db,
 		getTileId: s1,
 		getTile:   s2,
-	}
-	return &BlobArray{
-		Len:    reader.p.Len,
-		reader: reader,
 	}, nil
 }
 
+// start with the most used tiles
+
 // getChunks implements Bucketable
 // repeats at beginning.
-func (m *MbtileSet) getChunks(start int, end int) ([][]byte, []int, error) {
+func (m *MbtileSet) Read(start int, end int) ([][]byte, []int, error) {
+	var b []byte
 	r := make([][]byte, 0, end-start)
 	rs := []int{}
 
-	for ; start < len(m.Repeats); start++ {
-		r = append(r, m.Repeats[start])
+	for ; start < len(m.repeated_tile_id); start++ {
+		m.getTile.QueryRow(m.repeated_tile_id[start]).Scan(&b)
+		// we might need to copy the block? does scan overwrite?
+		r = r.append(b)
 	}
 
 	start -= len(m.Repeats)
@@ -68,7 +74,6 @@ func (m *MbtileSet) getChunks(start int, end int) ([][]byte, []int, error) {
 			return nil, nil, err
 		}
 
-		var b []byte
 		sym, ok := m.repeated[tileid]
 		if !ok {
 			m.getTile.QueryRow(tileid).Scan(&b)
