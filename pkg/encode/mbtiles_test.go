@@ -7,7 +7,8 @@ const smallpath = "/Users/jim/dev/datagrove/peliasgo/build/world/monaco.mbtiles"
 const outpath = "/Users/jim/dev/datagrove/peliasgo/build/flat/d"
 
 func Test_o1(t *testing.T) {
-	e := MbtilesConvert(smallpath, outpath, 20*1024*1024)
+	o := NewDbEncoder(outpath, 20*1024*1024)
+	e := o.MbtilesConvert("map", smallpath)
 	if e != nil {
 		panic(e)
 	}

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"log"
 	"math"
-	"os"
 	"unsafe"
 
 	"github.com/jfcg/sorty/v2"
@@ -35,7 +34,23 @@ func toBytes(d []uint64) []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&d[0])), len(d)<<3)
 }
 
-func MbtilesConvert(inpath, outpath string, maxfiles int) error {
+type DbEncoder struct {
+	wr *SplitLogWriter
+}
+
+func NewDbEncoder(path string, maxfiles int) *DbEncoder {
+	wr := OpenSplitLog(path, maxfiles)
+	return &DbEncoder{
+		wr: wr,
+	}
+}
+func (o *DbEncoder) Close() {
+
+	o.wr.Close()
+}
+
+func (o *DbEncoder) MbtilesConvert(table, inpath string) error {
+
 	db, e := sql.Open("sqlite3", inpath)
 	if e != nil {
 		return e
@@ -44,30 +59,29 @@ func MbtilesConvert(inpath, outpath string, maxfiles int) error {
 	if e != nil {
 		return e
 	}
-	pyr := NewPyramid(0, 15)
-	//shallow := make([]uint64, pyr.Len)
-	// prv[pyr] = tile_data
-	// lowpyr[tile_data] = pyr
+	rs, e := db.Query("select zoom_level , tile_column ,tile_row integer, tile_data_id from tiles_shallow")
+	if e != nil {
+		return e
+	}
 
-	// this is sparse, and we only want to visit the pyramid addresses that we care about. It's not clear how run length encoding works then?
+	pyr := NewPyramid(0, 15)
 	pyrToTdi := make([]uint32, pyr.Len)
+	// low helps because we already know where it is. we could reverse sort?
 	tdiToLowPyr := make([]uint32, pyr.Len)
-	tdiToLowPyrLen := make([]uint32, pyr.Len)
 	pyrAll := make([]uint32, pyr.Len)
 	pyrN := 0
 	for i := range tdiToLowPyr {
 		tdiToLowPyr[i] = math.MaxUint32
 	}
-
-	// this is count, tile. lets us sort by count so we can pack the most reused tiles to make them easy to cache. Count here _should_ be a weight that includes usefullness but future work.
-	rs, e := db.Query("select zoom_level , tile_column ,tile_row integer, tile_data_id from tiles_shallow")
-	if e != nil {
-		return e
-	}
 	var zoom_level, tile_column, tile_row, tile_data_id uint32
+	maxTdi := uint32(0)
 	n := 0
 	for rs.Next() {
+		// are these guaranteed to increase tile_data_id? not clear. we could sort by tile_data_id, is that worth it though?
 		rs.Scan(&zoom_level, &tile_column, &tile_row, &tile_data_id)
+		if tile_data_id+1 > maxTdi {
+			maxTdi = tile_data_id + 1
+		}
 		// generate the hilbert id and
 		id, e := pyr.FromXyz(tile_column, tile_row, zoom_level)
 		if e != nil {
@@ -88,58 +102,34 @@ func MbtilesConvert(inpath, outpath string, maxfiles int) error {
 	pyrAll = pyrAll[0:pyrN]
 	sorty.SortSlice(pyrAll)
 
-	// low helps because we already know where it is. we could reverse sort?
-	// by using three columns here, we can run length encode the tiles.
-	// pyr,start,len  (pyr -> fat pointer)
-	// note that len is not exactly needed because we can stream from where we want to the end of the file.
-	wr := OpenSplitLog(outpath, maxfiles)
-	tileStart := make([]uint64, pyr.Len*3)
+	tileStart := make([]uint64, maxTdi)
+	tileLength := make([]uint32, maxTdi)
 	var data []byte
 	pos := uint64(0)
-	previous_id := uint32(math.MaxUint32)
-	j := 0
-
-	// we only want to run length encode while the pyr increments by 1.
-	// if it jumps by more than one, then we need to insert a don't know even if
-	//
-	for ii := range pyrAll {
-		if ii%10000 == 0 {
-			log.Printf("%d", ii)
+	idx := NewIndex[uint32](o)
+	defer idx.Close()
+	for j := range pyrAll {
+		if j%10000 == 0 {
+			log.Printf("%d", j)
 		}
-
-		i := pyrAll[ii]
+		i := pyrAll[j]
 		tile_data_id = pyrToTdi[i]
-		if tile_data_id == previous_id {
-			continue
-		}
-		tileStart[j+2] = uint64(i)
 		if uint32(i) == tdiToLowPyr[tile_data_id] {
 			e = getTileData.QueryRow(tile_data_id).Scan(&data)
 			if e != nil {
 				return e
 			}
-			wr.Write(data)
-			tileStart[j] = pos
-			tileStart[j+1] = uint64(len(data))
-			tdiToLowPyrLen[tile_data_id] = uint32(len(data))
+			o.wr.Write(data)
+			tileStart[tile_data_id] = pos
+			tileLength[tile_data_id] = uint32(len(data))
+			idx.Add(i, pos, uint32(len(data)))
 			pos += uint64(len(data))
 		} else {
-			pyr := tdiToLowPyr[tile_data_id]
-			tileStart[j] = tileStart[pyr*2]
-			tileStart[j+1] = tileStart[pyr*2+1]
+			prevpos := tileStart[tile_data_id]
+			prevlen := uint32(tile_data_id)
+			idx.Add(i, prevpos, prevlen)
 		}
-		j += 3
 	}
-	// so
-
-	// we need a highPyr->filestart
-	// this is sparse, so we need
-
-	// we need a pyr -> highPyr, also sparse, run length encoded.
-	// can we have just a pyr->filestart, sparse (encoding runs)
-	wr.Close()
-	os.WriteFile(outpath+".idx", toBytes(tileStart[:j]), os.ModePerm)
-
 	return nil
 }
 
