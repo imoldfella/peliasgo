@@ -296,3 +296,128 @@ func (m *MbtileSet) Read(start int, end int) ([][]byte, []int, error) {
 	return r, rs, nil
 }
 */
+
+
+
+// Patched binary interpolative coding
+type Pbic struct {
+	key []uint32
+	// predicts
+	value  []uint64
+	length []uint64
+}
+
+type Patch struct {
+	offset uint64
+	length uint32
+	pos    uint32
+}
+type PbicEncoder struct {
+	patch []Patch
+}
+
+// destroys input.
+func (e *PbicEncoder) Encode(pos uint64, key, size []uint32, offset []uint64, w io.Writer) int {
+	// is this the +1 idea better than just creating a bitset? bitsets are easy to compress. we still need to make offset move forward though or we can't use bic. Could we store the varint directly in the blob? Could create an extra io, but also could save io by keeping more good data in the interior node.
+
+	// go through and remove the patches and adjust the offsets
+	for i := range key {
+		if offset[i] != pos {
+			e.patch = append(e.patch, Patch{offset[i], size[i], uint32(len(e.patch))})
+			offset[i] = pos + uint64(i)
+		} else {
+			pos += uint64(size[i])
+			offset[i] += uint64(i)
+		}
+	}
+	// we sort and uniquify the patches into a dictionary, then varint code the
+	// entry in this dictionary. we need to keep their references
+
+	sort.Slice(e.patch, func(a, b int) bool {
+		return false
+	})
+	return 0
+}
+func PbicDecode(length int, r io.Reader) {
+
+}
+
+	// sort
+
+	// a run of values stored sequentially in the log
+	dense := []uint64{}
+
+	// skey will hold all the non-sequential keys
+	// the first key is non-sequential
+	// then
+	skey := []uint32{}
+	srun := []uint32{}
+	soffset := []uint64{}
+	ssize := []uint32{}
+
+	state := 1
+	for i := 1; i < len(x.key); i++ {
+		seq := x.key[i-1]+1 == x.key[i]
+		repeat := x.offset[i-1] == x.offset[i]
+		seqvalue := x.offset[i-1]+uint64(x.size[i-1]) == x.offset[i]
+
+		if seq && seqvalue {
+			dense = append(dense, x.offset[i])
+			srun[len(srun)-1]++
+		} else if false {
+
+		} else if seq && repeat {
+			srun[len(srun)-1]++
+		} else {
+			srun = append(srun, 1)
+			skey = append(skey, x.key[i])
+		}
+	}
+	//v1 := compress32(x.key)
+
+		if offset == x.pos {
+		// sequential reference
+		x.pos += uint64(size) + 1
+	} else {
+		// random reference
+		x.pos++
+		x.patchOffset = append(x.patchOffset)
+		x.patchSize = append(x.patchSize)
+	}
+func PartitionRange(from, to, partitions int) []int {
+	ln := to - from
+	splits := make([]int, partitions+1)
+	splits[partitions] = ln
+	delta := float64(ln) / float64(partitions)
+	o := delta
+	for i := 1; i < partitions; i++ {
+		splits[i] = int(math.Ceil(o))
+		o += delta
+	}
+	return splits
+}
+
+func Unpair(x uint64) (uint32, uint32) {
+	return uint32(x >> 32), uint32(x & ((1 << 32) - 1))
+}
+
+// Why Partitions?
+// 1. Average of one file to read a z,x,y. Two reads with ranges; one streaming for header
+// 2. Some parallelism
+// 3. Split into smallish files rather than pack is more cdn friendly.
+
+type Mbtiles struct {
+	path string
+	pyr  *Pyramid
+	// pyr -> tile_id
+	// we can keep a cache of tile_ids and only write them once.
+	shallow     []uint64
+	highPyramid []uint64
+	fileStart   []uint64
+}
+
+func NewMbtiles(inpath string) (*Mbtiles, error) {
+	return &Mbtiles{
+		path: inpath,
+	}, nil
+}

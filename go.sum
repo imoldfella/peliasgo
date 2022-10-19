@@ -1,7 +1,11 @@
 github.com/amallia/go-ef v0.0.0-20170925200654-42257fcce572 h1:b+H3l8BoFxsCvMhckHGG2deV/KZ+ROc4FPwqiinW+uU=
 github.com/amallia/go-ef v0.0.0-20170925200654-42257fcce572/go.mod h1:BQDm3lxh/iI0Wjly2ijlTAv7mHsDkE+lGHMAGMcHWZg=
+github.com/bvinc/go-sqlite-lite v0.6.1 h1:JU8Rz5YAOZQiU3WEulKF084wfXpytRiqD2IaW2QjPz4=
+github.com/bvinc/go-sqlite-lite v0.6.1/go.mod h1:2GiE60NUdb0aNhDdY+LXgrqAVDpi2Ijc6dB6ZMp9x6s=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/felixge/httpsnoop v1.0.1 h1:lvB5Jl89CsZtGIWuTcDM1E/vkVs49/Ml7JJe07l8SPQ=
+github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/gevg/ef v0.0.0-20210225201110-9622e4647e73 h1:NFBOQZFylVsJwebujpCiZY2ziLZzm53q8co5bz4Fwvo=
 github.com/gevg/ef v0.0.0-20210225201110-9622e4647e73/go.mod h1:nHbAGPkOY6ODENAKhE4Mx5KtX1vaoriyLbuX1+KxIbU=
 github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69NZV8Q=
@@ -9,6 +13,10 @@ github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaS
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/hilbert v0.0.0-20181122061418-320f2e35a565 h1:KBAlCAY6eLC44FiEwbzEbHnpVlw15iVM4ZK8QpRIp4U=
 github.com/google/hilbert v0.0.0-20181122061418-320f2e35a565/go.mod h1:xn6EodFfRzV6j8NXQRPjngeHWlrpOrsZPKuuLRThU1k=
+github.com/gorilla/handlers v1.5.1 h1:9lRY6j8DEeeBT10CvO9hGW0gmky0BprnvDI5vfhUHH4=
+github.com/gorilla/handlers v1.5.1/go.mod h1:t8XrUpc4KVXb7HGyJ4/cEnwQiaxrX/hz1Zv/4g96P1Q=
+github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
+github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
 github.com/jfcg/opt v0.3.0 h1:r+t4hbLD97vucimMTQlLXVKi43XVvmlv3tvs9BOPJSc=
 github.com/jfcg/sixb v1.3.5 h1:K9b9cjTlPBH47+1xiyUftR2Edk7/qkoQv5m+MfJXbko=
 github.com/jfcg/sixb v1.3.5/go.mod h1:UWrAr1q9s7pSPPqZNccmQM4N75p8GvuBYdFuq+09Qns=

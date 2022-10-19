@@ -1,57 +1,29 @@
 package encode
 
 import (
-	"database/sql"
+	"encoding/binary"
 	"log"
-	"math"
-	"unsafe"
 
+	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	_ "github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/jfcg/sorty/v2"
-	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/paulmach/orb"
 )
 
 // cover countries, states, other localities
 // https://pkg.go.dev/github.com/paulmach/orb/maptile/tilecover#section-readme
 
-type Mbtiles struct {
-	path string
-	pyr  *Pyramid
-	// pyr -> tile_id
-	// we can keep a cache of tile_ids and only write them once.
-	shallow     []uint64
-	highPyramid []uint64
-	fileStart   []uint64
-}
+func MbtilesConvert(o *DbEncoder, table, inpath string) error {
+	pyr := NewPyramid(0, 15)
+	// these are oversized to create a trivial perfect hash. for small maps it would be better to use a normal hash table
+	pyrAll := make([]uint32, pyr.Len)
+	pyrToTdi := make([]uint32, pyr.Len)
+	// low because we write from low to high, lower pyr address already written.
+	tdiToLowPyr := make([]uint32, pyr.Len)
 
-func NewMbtiles(inpath string) (*Mbtiles, error) {
-	return &Mbtiles{
-		path: inpath,
-	}, nil
-}
+	maxTdi := uint32(0)
 
-func toBytes(d []uint64) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&d[0])), len(d)<<3)
-}
-
-type DbEncoder struct {
-	wr *SplitLogWriter
-}
-
-func NewDbEncoder(path string, maxfiles int) *DbEncoder {
-	wr := OpenSplitLog(path, maxfiles)
-	return &DbEncoder{
-		wr: wr,
-	}
-}
-func (o *DbEncoder) Close() {
-
-	o.wr.Close()
-}
-
-func (o *DbEncoder) MbtilesConvert(table, inpath string) error {
-
-	db, e := sql.Open("sqlite3", inpath)
+	db, e := sqlite3.Open(inpath)
 	if e != nil {
 		return e
 	}
@@ -59,100 +31,148 @@ func (o *DbEncoder) MbtilesConvert(table, inpath string) error {
 	if e != nil {
 		return e
 	}
-	rs, e := db.Query("select zoom_level , tile_column ,tile_row integer, tile_data_id from tiles_shallow")
+	var data []byte
+	getTile := func(tdi uint32) ([]byte, error) {
+		defer getTileData.Reset()
+		data = data[:0]
+		e = getTileData.Bind(int(tdi))
+		if e == nil {
+			hasRow, _ := getTileData.Step()
+			if hasRow {
+				getTileData.Scan(&data)
+			}
+		}
+		if len(data) == 0 {
+			log.Printf("missing %d", tdi)
+			data = data[:0]
+		}
+		return data, nil
+	}
+
+	_, e = getTile(1)
+	if e != nil {
+		panic(e)
+	}
+	_, e = getTile(2)
+	if e != nil {
+		panic(e)
+	}
+
+	// I can do this in parallel. splitting on zoom_level and tile_column
+	// most of the work in is zoom level, I could also test with an early out.
+	readShallow := func() error {
+		log.Printf("reading shallow")
+		rs, e := db.Prepare("select zoom_level , tile_column ,tile_row integer, tile_data_id from tiles_shallow")
+		if e != nil {
+			return e
+		}
+		defer rs.Close()
+
+		var zoom_level, tile_column, tile_row, tile_data_id uint32
+		var i1, i2, i3, i4 int
+		pyrN := 0
+		for {
+			if zoom_level > 10 {
+				break
+			}
+			hasRow, e := rs.Step()
+			if e != nil {
+				return e
+			}
+			if !hasRow {
+				break
+			}
+			e = rs.Scan(&i1, &i2, &i3, &i4)
+			zoom_level = uint32(i1)
+			tile_column = uint32(i2)
+			tile_row = uint32(i3)
+			tile_data_id = uint32(i4)
+			if e != nil {
+				panic(e)
+			}
+			if tile_data_id > maxTdi {
+				maxTdi = tile_data_id
+			}
+			// note that pyrid cannot be 0, we +1 from the normal id to leave space for null.
+			pyrid, e := pyr.FromXyz(tile_column, tile_row, zoom_level)
+			if e != nil {
+				return e
+			}
+			pyrAll[pyrN] = pyrid
+			pyrN++
+			pyrToTdi[pyrid] = tile_data_id
+			if tdiToLowPyr[tile_data_id] == 0 || tdiToLowPyr[tile_data_id] > pyrid {
+				tdiToLowPyr[tile_data_id] = pyrid
+			}
+			if pyrN%1000000 == 0 {
+				log.Printf("%d", pyrN/1000000)
+			}
+		}
+		maxTdi++
+		pyrAll = pyrAll[0:pyrN] // trim off unused pieces
+		return nil
+	}
+
+	writeTable := func() error {
+		log.Printf("writing table")
+
+		var tile_data_id uint32 = 0
+		tileStart := make([]uint64, maxTdi)
+		tileLength := make([]uint32, maxTdi)
+		idx := OpenIndex32(o, table)
+
+		j := 0
+		for j < len(pyrAll) {
+			if j%1000000 == 0 {
+				log.Printf("%d", j/1000000)
+			}
+			i := pyrAll[j]
+			tile_data_id = pyrToTdi[i]
+			if uint32(i) == tdiToLowPyr[tile_data_id] {
+				data, e := getTile(tile_data_id)
+				if e != nil {
+					return e
+				}
+				pos, _ := idx.Add(i, data)
+				tileStart[tile_data_id] = pos
+				tileLength[tile_data_id] = uint32(len(data))
+				pos += uint64(len(data))
+				j++
+			} else {
+				// advance j to the end of the run
+				bg := j
+				for j++; j < len(pyrAll); j++ {
+					if pyrToTdi[pyrAll[j]] != tile_data_id {
+						break
+					}
+				}
+				// create a varint pointer to previous block
+				var b [32]byte
+				// run length
+				n := binary.PutUvarint(b[:], uint64(j-bg))
+				// start and length of copied block
+				n += binary.PutUvarint(b[n:], tileStart[tile_data_id])
+				n += binary.PutUvarint(b[n:], uint64(tileLength[tile_data_id]))
+				idx.Add(i, b[:n])
+			}
+		}
+		beginIndex := o.wr.Length()
+		idx.Close()
+		log.Printf("data,index=%d,%d", beginIndex, o.wr.Length()-beginIndex)
+		return nil
+	}
+
+	e = readShallow()
+	if e != nil {
+		return e
+	}
+	log.Printf("sorting")
+	sorty.SortSlice(pyrAll)
+
+	e = writeTable()
 	if e != nil {
 		return e
 	}
 
-	pyr := NewPyramid(0, 15)
-	pyrToTdi := make([]uint32, pyr.Len)
-	// low helps because we already know where it is. we could reverse sort?
-	tdiToLowPyr := make([]uint32, pyr.Len)
-	pyrAll := make([]uint32, pyr.Len)
-	pyrN := 0
-	for i := range tdiToLowPyr {
-		tdiToLowPyr[i] = math.MaxUint32
-	}
-	var zoom_level, tile_column, tile_row, tile_data_id uint32
-	maxTdi := uint32(0)
-	n := 0
-	for rs.Next() {
-		// are these guaranteed to increase tile_data_id? not clear. we could sort by tile_data_id, is that worth it though?
-		rs.Scan(&zoom_level, &tile_column, &tile_row, &tile_data_id)
-		if tile_data_id+1 > maxTdi {
-			maxTdi = tile_data_id + 1
-		}
-		// generate the hilbert id and
-		id, e := pyr.FromXyz(tile_column, tile_row, zoom_level)
-		if e != nil {
-			return e
-		}
-		pyrAll[pyrN] = id
-		pyrN++
-		//shallow[i] = (id << 32) + uint64(tile_data_id)
-		pyrToTdi[id] = tile_data_id
-		if tdiToLowPyr[tile_data_id] > id {
-			tdiToLowPyr[tile_data_id] = id
-		}
-		n++
-		if n%10000 == 0 {
-			log.Printf("%d", n)
-		}
-	}
-	pyrAll = pyrAll[0:pyrN]
-	sorty.SortSlice(pyrAll)
-
-	tileStart := make([]uint64, maxTdi)
-	tileLength := make([]uint32, maxTdi)
-	var data []byte
-	pos := uint64(0)
-	idx := NewIndex[uint32](o)
-	defer idx.Close()
-	for j := range pyrAll {
-		if j%10000 == 0 {
-			log.Printf("%d", j)
-		}
-		i := pyrAll[j]
-		tile_data_id = pyrToTdi[i]
-		if uint32(i) == tdiToLowPyr[tile_data_id] {
-			e = getTileData.QueryRow(tile_data_id).Scan(&data)
-			if e != nil {
-				return e
-			}
-			o.wr.Write(data)
-			tileStart[tile_data_id] = pos
-			tileLength[tile_data_id] = uint32(len(data))
-			idx.Add(i, pos, uint32(len(data)))
-			pos += uint64(len(data))
-		} else {
-			prevpos := tileStart[tile_data_id]
-			prevlen := uint32(tile_data_id)
-			idx.Add(i, prevpos, prevlen)
-		}
-	}
 	return nil
 }
-
-func PartitionRange(from, to, partitions int) []int {
-	ln := to - from
-	splits := make([]int, partitions+1)
-	splits[partitions] = ln
-	delta := float64(ln) / float64(partitions)
-	o := delta
-	for i := 1; i < partitions; i++ {
-		splits[i] = int(math.Ceil(o))
-		o += delta
-	}
-	return splits
-}
-
-func Unpair(x uint64) (uint32, uint32) {
-	return uint32(x >> 32), uint32(x & ((1 << 32) - 1))
-}
-
-// Why Partitions?
-// 1. Average of one file to read a z,x,y. Two reads with ranges; one streaming for header
-// 2. Some parallelism
-// 3. Split into smallish files rather than pack is more cdn friendly.
-
-const dry_run = true

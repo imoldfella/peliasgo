@@ -6,6 +6,8 @@ import (
 	"github.com/google/hilbert"
 )
 
+// normal pyramid encoding except we add 1 so that 0 can be used for "null"
+
 type Pyramid struct {
 	Len     int
 	MinZoom int
@@ -15,6 +17,7 @@ type Pyramid struct {
 }
 
 func (p *Pyramid) Xyz(id int) (x, y, z int, e error) {
+	id-- // make it 0 based
 	for z, h := range p.h {
 		sz := h.N * h.N
 		if id >= sz {
@@ -26,10 +29,11 @@ func (p *Pyramid) Xyz(id int) (x, y, z int, e error) {
 	}
 	return 0, 0, 0, fmt.Errorf("out of bounds")
 }
+
 func (p *Pyramid) FromXyz(x, y, z uint32) (uint32, error) {
 	id, e := p.h[z].MapInverse(int(x), int(y))
 	id += p.start[z]
-	return uint32(id), e
+	return uint32(id) + 1, e
 }
 
 func NewPyramid(minZoom, maxZoom int) *Pyramid {

@@ -1,12 +1,4 @@
-package encode
-
-func If[T any](t bool, a, b T) T {
-	if t {
-		return a
-	} else {
-		return b
-	}
-}
+package scrap
 
 /*
 type RlArray struct {

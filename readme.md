@@ -98,3 +98,6 @@ https://github.com/mapbox/tile-cover
  X: (int) 5152,
  Y: (int) 10784
 }
+
+# whyu bvinc/go-sqlite-lite 
+https://turriate.com/articles/making-sqlite-faster-in-go
