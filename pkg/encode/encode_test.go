@@ -18,6 +18,26 @@ func Test_pyramid(t *testing.T) {
 	}
 }
 
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+func compare(mbtiles, dgtiles string) {
+	o, e := OpenDatabase(dgtiles)
+	defer o.Close()
+	check(e)
+	tbl, e := o.Table("map")
+	b, e := tbl.Get(0)
+	check(e)
+	log.Print(string(b))
+}
+
+func Test_compare(t *testing.T) {
+	const outpath = "/Users/jim/dev/datagrove/peliasgo/build/flat/db"
+	const allpath = "/Users/jim/dev/datagrove/peliasgo/build/flat/output."
+	compare(allpath, outpath)
+}
 func Test_big(t *testing.T) {
 	const outpath = "/Users/jim/dev/datagrove/peliasgo/build/flat/db"
 	const allpath = "/Users/jim/dev/datagrove/peliasgo/build/flat/output.mbtiles"
@@ -31,6 +51,9 @@ func Test_big(t *testing.T) {
 	if e != nil {
 		panic(e)
 	}
+	o.Close()
+
+	compare(allpath, outpath)
 }
 
 func Test_o1(t *testing.T) {

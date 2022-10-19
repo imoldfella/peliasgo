@@ -2,13 +2,85 @@ package encode
 
 import (
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
-	_ "github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/jfcg/sorty/v2"
 	_ "github.com/paulmach/orb"
 )
+
+// needed for cors?
+// .Methods(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodOptions)
+type Metadata struct {
+	Tilejson     string            `json:"tilejson"`
+	Scheme       string            `json:"scheme"`
+	Type         string            `json:"type"`
+	Format       string            `json:"format"`
+	Tiles        []string          `json:"tiles"`
+	Bounds       []float64         `json:"bounds"`
+	Center       []int             `json:"center"`
+	Name         string            `json:"name"`
+	Version      string            `json:"version"`
+	Description  string            `json:"description"`
+	Minzoom      int               `json:"minzoom"`
+	Maxzoom      int               `json:"maxzoom"`
+	VectorLayers []json.RawMessage `json:"vector_layers"`
+}
+
+func MetadataToJson(db *sqlite3.Conn) ([]byte, error) {
+	// can we marshal this?
+	meta := map[string]string{}
+	rows, e := db.Prepare("select name,value from metadata")
+	if e != nil {
+		return nil, e
+	}
+	var key, value string
+	for {
+		hasRow, e := rows.Step()
+		if e != nil {
+			log.Print(e)
+		}
+		if !hasRow {
+			break
+		}
+		rows.Scan(&key, &value)
+		meta[key] = value
+	}
+	rows.Close()
+
+	me := `{
+		"tilejson": "2.0.0",
+		"scheme": "tms",
+		"type": "baselayer",
+		"format": "pbf",
+		"tiles": [
+			"http://localhost:8081/rlp/{z}/{x}/{y}.pbf"
+		],
+		"bounds": [
+			%s
+		],
+		"center": [%s],
+		"name": "OpenMapTiles",
+		"version": "3.13.1",
+		"description": "Tile config based on OpenMapTiles schema",
+		"minzoom": 0,
+		"maxzoom": 14
+	}
+	`
+
+	js := fmt.Sprintf(me, meta["bounds"], meta["center"])
+	var x Metadata
+	json.Unmarshal([]byte(js), &x)
+
+	var v Metadata
+	json.Unmarshal([]byte(meta["json"]), &v)
+	x.VectorLayers = v.VectorLayers
+
+	b, _ := json.Marshal(&x)
+	return b, nil
+}
 
 // cover countries, states, other localities
 // https://pkg.go.dev/github.com/paulmach/orb/maptile/tilecover#section-readme
@@ -47,15 +119,6 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 			data = data[:0]
 		}
 		return data, nil
-	}
-
-	_, e = getTile(1)
-	if e != nil {
-		panic(e)
-	}
-	_, e = getTile(2)
-	if e != nil {
-		panic(e)
 	}
 
 	// I can do this in parallel. splitting on zoom_level and tile_column
@@ -114,12 +177,19 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 	}
 
 	writeTable := func() error {
+
 		log.Printf("writing table")
 
 		var tile_data_id uint32 = 0
 		tileStart := make([]uint64, maxTdi)
 		tileLength := make([]uint32, maxTdi)
 		idx := OpenIndex32(o, table)
+
+		metadata, e := MetadataToJson(db)
+		if e != nil {
+			return e
+		}
+		idx.Add(0, metadata)
 
 		j := 0
 		for j < len(pyrAll) {

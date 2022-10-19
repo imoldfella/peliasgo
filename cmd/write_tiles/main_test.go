@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func db(file string) *sql.DB {

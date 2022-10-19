@@ -101,3 +101,7 @@ https://github.com/mapbox/tile-cover
 
 # whyu bvinc/go-sqlite-lite 
 https://turriate.com/articles/making-sqlite-faster-in-go
+
+this should probably be benchmarked for our use, but we might move to duckdb with sqlite reader, or eliminate mbtile step instead. bvinc not support uint32 is meh. If we stay with it we should probably fix this, but open pull request from 2020 doesn't seem like this is alive.
+
+
