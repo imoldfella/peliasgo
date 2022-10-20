@@ -85,7 +85,7 @@ func MetadataToJson(db *sqlite3.Conn) ([]byte, error) {
 // cover countries, states, other localities
 // https://pkg.go.dev/github.com/paulmach/orb/maptile/tilecover#section-readme
 
-func MbtilesConvert(o *DbEncoder, table, inpath string) error {
+func MbtilesConvert(o *DbWriter, table, inpath string, maxzoom int) error {
 	pyr := NewPyramid(0, 15)
 	// these are oversized to create a trivial perfect hash. for small maps it would be better to use a normal hash table
 	pyrAll := make([]uint32, pyr.Len)
@@ -135,7 +135,7 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 		var i1, i2, i3, i4 int
 		pyrN := 0
 		for {
-			if zoom_level > 10 {
+			if int(zoom_level) >= maxzoom {
 				break
 			}
 			hasRow, e := rs.Step()
@@ -157,7 +157,7 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 				maxTdi = tile_data_id
 			}
 			// note that pyrid cannot be 0, we +1 from the normal id to leave space for null.
-			pyrid, e := pyr.FromXyz(tile_column, tile_row, zoom_level)
+			pyrid, e := pyr.FromXyz32(tile_column, tile_row, zoom_level)
 			if e != nil {
 				return e
 			}
@@ -183,7 +183,7 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 		var tile_data_id uint32 = 0
 		tileStart := make([]uint64, maxTdi)
 		tileLength := make([]uint32, maxTdi)
-		idx := OpenIndex32(o, table)
+		idx := OpenIndex32(o, table, 0)
 
 		metadata, e := MetadataToJson(db)
 		if e != nil {
@@ -209,6 +209,7 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 				pos += uint64(len(data))
 				j++
 			} else {
+
 				// advance j to the end of the run
 				bg := j
 				for j++; j < len(pyrAll); j++ {
@@ -217,13 +218,24 @@ func MbtilesConvert(o *DbEncoder, table, inpath string) error {
 					}
 				}
 				// create a varint pointer to previous block
-				var b [32]byte
-				// run length
-				n := binary.PutUvarint(b[:], uint64(j-bg))
-				// start and length of copied block
-				n += binary.PutUvarint(b[n:], tileStart[tile_data_id])
-				n += binary.PutUvarint(b[n:], uint64(tileLength[tile_data_id]))
-				idx.Add(i, b[:n])
+				var b [3 * binary.MaxVarintLen64]byte
+				if false {
+					// run length
+					n := binary.PutUvarint(b[:], uint64(j-bg))
+					// should this be a direct slice, or a key? keys are smaller
+					// start and length of copied block
+					n += binary.PutUvarint(b[n:], tileStart[tile_data_id])
+					n += binary.PutUvarint(b[n:], uint64(tileLength[tile_data_id]))
+					idx.Add(i, b[:n])
+				} else {
+					// think!! if we kept this key replacement we could probably save some memory?
+					// this strategy assumes the client only makes good requests
+					// and filters them appropriately, do they have enough information though?
+					replace := tdiToLowPyr[tile_data_id]
+					n := binary.PutUvarint(b[0:], uint64(replace))
+					idx.Add(i, b[:n])
+				}
+
 			}
 		}
 		beginIndex := o.wr.Length()

@@ -16,3 +16,14 @@ func Test_mbtiles(t *testing.T) {
 
 	ServeTiles(src, "8081", "/Users/jim/dev/datagrove/peliasgo/build/flat")
 }
+
+func Test_dgtiles(t *testing.T) {
+	src, e := OpenDgtileSource("../../build/flat/db")
+	check(e)
+
+	ServeTiles(src, "8081", "/Users/jim/dev/datagrove/peliasgo/build/flat")
+}
+
+func ServeRanges(t *testing.T) {
+
+}
