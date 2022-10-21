@@ -1,7 +1,7 @@
-import  {StyleSpecification}  from 'maplibre-gl'
+//import  {StyleSpecification}  from 'maplibre-gl'
 
 
-export const mapstyle : StyleSpecification = {
+export const mapstyle : any = {
     "version": 8,
     "name": "Basic",
     "metadata": {
@@ -98,7 +98,7 @@ export const mapstyle : StyleSpecification = {
         "layout": {"visibility": "visible"},
         "paint": {
           "fill-color": "hsl(47, 22%, 94%)",
-          "fill-opacity": {"base": 1, "stops": [[0, 1], [8, 0.5]]}
+          "fill-opacity": 0.8,
         }
       },
       {

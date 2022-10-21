@@ -27,6 +27,16 @@ func check(e error) {
 		panic(e)
 	}
 }
+func Test_metadata(t *testing.T) {
+	o, e := OpenDatabase("/Users/jim/dev/datagrove/peliasgo/build/flat/db")
+	check(e)
+	defer o.Close()
+	tbl, e := o.Table("map")
+	check(e)
+	b, e := tbl.Get(1)
+	check(e)
+	log.Printf("%v", b)
+}
 func compare1(mbtiles, dgtiles string) {
 	o, e := OpenDatabase(dgtiles)
 	check(e)

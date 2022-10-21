@@ -91,7 +91,7 @@ export class Protocol {
       buf: Uint8Array;
       pos: number;
   }
-  
+
   function toNum(low: number, high: number): number {
       return (high >>> 0) * 0x100000000 + (low >>> 0);
   }
